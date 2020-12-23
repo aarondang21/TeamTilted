@@ -1,9 +1,9 @@
+#include <Servo.h>
 #include <SPI.h>
 #include <RH_RF69.h>
 #include <LIS3MDL.h>
 #include <EEPROM.h>
 #include <EEWrap.h>
-#include <Adafruit_SSD1306.h>
 
 #define SCK 13 // clock - pin 13
 #define MISO 12 // MISO - pin 12
@@ -11,38 +11,32 @@
 #define t1_CS 9 // chip select 1 - pin 9 
 #define t1_RST 8 // reset 1 - pin 8
 #define t1_INT 3 // interrupt 1 - pin 3
-#define buttonPin 2 // button interrupt - pin 2
-#define SCREEN_WIDTH 128 // OLED display width in pixels
-#define SCREEN_HEIGHT 64 // OLED display height in pixels
-#define OLED_RESET -1 // Reset pin # (or -1 if sharing Arduino reset pin)
+#define button 2 // button interrupt - pin 2
 
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 RH_RF69 t1(t1_CS, t1_INT);
+Servo servo_y;
+Servo servo_x;
 
-volatile int init_t = 0;
-volatile int curr_t = 0;
-volatile bool buttonState = false;
+//int last;
 
 //enum States {initialize, play, complete};
 //States myState = initialize;
 
-// 1 - initialize, 2 - play, 3 - complete
-int myState = 1;
+//1 - initialize, 2 - play, 3 - complete
+//int myState = 1;
+
+int initial_t;
 
 void setup() {
 
   Serial.begin(9600);
 
-  attachInterrupt(digitalPinToInterrupt(2), button, FALLING);
+  //Serial.println("A");
+  servo_y.attach(5);
+  servo_x.attach(4);
+  //Serial.println("B");
 
-  display.begin(SSD1306_SWITCHCAPVCC, 0X3C);
-  display.clearDisplay();
-  display.display();
-  display.setTextSize(1);
-  display.setTextColor(WHITE);
-  display.setCursor(0, 0);
-
-  pinMode(buttonPin, INPUT_PULLUP);
+  pinMode(button, INPUT_PULLUP);
 
   pinMode(t1_RST, OUTPUT); // set reset 1 pin to output mode
 
@@ -59,16 +53,59 @@ void setup() {
   t1.setFrequency(915); // set transciever 1 frequency to 915 MHz
   t1.setTxPower(17, true); // set transciever 1 power to 17
 
+  Serial.println("Press button to start!");
+  while (digitalRead(button) == HIGH) {}
+  Serial.println("GO!");
+  initial_t = millis();
+
 }
 
 void loop() {
 
+  //Serial.println("C");
+
+  uint8_t buf[RH_RF69_MAX_MESSAGE_LEN];
+  uint8_t len = sizeof(buf);
+  //Serial.println("D");
+  t1.waitAvailable();
+  //Serial.println("E");
+  t1.recv(buf, &len);
+  //Serial.println("F");
+
+  //int x = (int) buf[0];
+  //int y = (int) buf[1];
+
+  int x = map(buf[0], 0, 255, 180, 0);
+  int y = map(buf[1], 0, 255, 0, 180);
+  //Serial.println("G");
+
+  //Serial.println("H");
+
+
+  servo_y.write(y);
+  servo_x.write(x);
+  
+  int sensor = analogRead(A5);
+  if (sensor < 450 || sensor > 600) {
+    int final_t = (millis() - initial_t) / 1000;
+    servo_y.write(90);
+    servo_x.write(90);
+    Serial.println("You win!");
+    Serial.print("Time: ");
+    Serial.println(final_t); // print time here
+    Serial.println("Place ball at the beginning and press the button to reset.");
+    while (digitalRead(button) == HIGH) {}
+    initial_t = millis();  
+  }
+  
+}
+/*
   Serial.println("HERE");
 
   uint8_t buf[RH_RF69_MAX_MESSAGE_LEN];
   uint8_t len = sizeof(buf);
-  //t1.waitAvailable();
-  //t1.recv(buf, &len);
+  t1.waitAvailable();
+  t1.recv(buf, &len);
 
   switch(myState) {
 
@@ -81,13 +118,12 @@ void loop() {
       display.println("Place ball at start and press button to begin!");
       display.display();
 
-/*
+
       if (buttonState = true) {
         buttonState = false;
         init_t = millis();
         myState = play;
       }
-      */
     }
 
     case 2: {
@@ -116,7 +152,6 @@ void loop() {
       Serial.println("DONE");
     }
     
-    /*
 
     case complete: {
 
@@ -130,12 +165,9 @@ void loop() {
       init_t = millis();
       myState = play;
     }
-
-  */
     
   }  
 
-/*
   uint8_t buf[RH_RF69_MAX_MESSAGE_LEN];
   uint8_t len = sizeof(buf);
   t1.waitAvailable(); 
@@ -153,12 +185,5 @@ void loop() {
   if (sensor < 500 || sensor > 550) {
     Serial.println("You Win!");
   }
+}
 */  
-}
-
-void button() {
-
-  buttonState = true;
-  Serial.println("BUTTON");
-  myState = 2;
-}

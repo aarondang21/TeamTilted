@@ -58,6 +58,5 @@ void loop() {
   t1.waitPacketSent();
 
   Serial.println(data1);
-
-  delay(1000);
+  delay(10);
 }
